@@ -11,7 +11,7 @@ const action = args[0];
 const payload = args.slice(1).join(' ');
 
 const API_KEY = process.env.KAVLR_API_KEY || '';
-const KAVLR_API = 'https://kavlr-api-production.up.railway.app/api/intercept';
+const KAVLR_API = "https://kavlr-api-production.up.railway.app/api/intercept";
 
 async function run() {
   if (!API_KEY) {
