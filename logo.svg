@@ -1,0 +1,18 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d2ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0052ff;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9900;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff5500;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Outer Hexagon Shield -->
+  <path d="M50 5 L88 25 L88 75 L50 95 L12 75 L12 25 Z" fill="#0a0a0a" stroke="url(#blueGrad)" stroke-width="6" stroke-linejoin="round"/>
+  <!-- Inner Padlock -->
+  <path d="M50 35 V45" stroke="url(#blueGrad)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M40 45 H60 V60 H40 Z" fill="url(#orangeGrad)" stroke="none"/>
+  <path d="M42 45 V38 C42 33.58 45.58 30 50 30 C54.42 30 58 33.58 58 38 V45" fill="none" stroke="url(#blueGrad)" stroke-width="5" stroke-linecap="round"/>
+</svg>

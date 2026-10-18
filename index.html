@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>KAVLR | Runtime Security</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505; --surface: #0c0c0c; --border: rgba(255, 255, 255, 0.08);
+    --text: #ededed; --muted: #888; --accent: #10b981; --accent-glow: rgba(16, 185, 129, 0.2);
+    --danger: #ef4444; --danger-glow: rgba(239, 68, 68, 0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+  
+  .bg-grid { position: fixed; inset: 0; z-index: -2; background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; mask-image: radial-gradient(circle at center, black, transparent 80%); }
+  .orb { position: fixed; border-radius: 50%; filter: blur(100px); z-index: -1; opacity: 0.3; animation: drift 20s infinite alternate; }
+  .orb-1 { width: 400px; height: 400px; background: #10b981; top: -100px; left: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: #ef4444; bottom: -100px; right: -100px; opacity: 0.15; }
+  @keyframes drift { 0% { transform: translate(0,0); } 100% { transform: translate(50px, 50px); } }
+
+  /* --- LANDING PAGE --- */
+  #landing-page { display: flex; flex-direction: column; flex: 1; }
+  nav { padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 10px; letter-spacing: -0.03em; color: #fff; text-decoration: none; }
+  .logo img { width: 24px; height: 24px; display: block; }
+  .nav-btn { background: #fff; color: #000; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; text-decoration: none; cursor: pointer; }
+  
+  .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; margin-top: 40px; }
+  .hero-badge { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--accent); padding: 6px 16px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 24px; display: inline-flex; align-items: center; gap: 8px; }
+  .hero h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.04em; margin-bottom: 24px; max-width: 800px; background: linear-gradient(180deg, #fff 0%, #a3a3a3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 1.1rem; color: var(--muted); max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
+  .hero-cta { background: var(--accent); color: #000; padding: 16px 32px; border-radius: 12px; font-size: 1.1rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; cursor: pointer; }
+  .hero-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 20px var(--accent-glow); }
+  .hero-subcta { margin-top: 16px; font-size: 0.85rem; color: var(--muted); }
+  .hero-subcta span { color: #fff; cursor: pointer; font-weight: 600; }
+  .hero-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; max-width: 900px; margin: 80px auto 0; text-align: left; }
+  .feature { background: var(--surface); border: 1px solid var(--border); padding: 24px; border-radius: 16px; }
+  .feature-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--accent); }
+  .feature h3 { font-size: 1.1rem; margin-bottom: 8px; color: #fff; }
+  .feature p { font-size: 0.9rem; color: var(--muted); line-height: 1.5; }
+
+  /* --- ONBOARDING WIZARD --- */
+  .overlay { position: fixed; inset: 0; background: #050505; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+  .wizard-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; width: 100%; max-width: 500px; padding: 40px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.5); margin: auto; }
+  .wizard-progress { display: flex; gap: 8px; margin-bottom: 32px; }
+  .progress-step { height: 4px; flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s; }
+  .progress-step.active { background: var(--accent); }
+  
+  .wizard-step { display: none; }
+  .wizard-step.active { display: block; }
+
+  .wizard-step h2 { font-size: 1.5rem; margin-bottom: 8px; color: #fff; }
+  .wizard-step p { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+  
+  .avatar-upload { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .avatar-circle { width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; }
+  .avatar-circle img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .avatar-circle span { font-size: 2rem; color: var(--muted); }
+  .avatar-label { font-size: 0.85rem; color: var(--accent); cursor: pointer; font-weight: 600; }
+  #avatar-input { display: none; }
+
+  .input-group { margin-bottom: 20px; }
+  .input-group label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; }
+  .input-group input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.5); color: white; font-size: 1rem; outline: none; }
+  .input-group input:focus { border-color: var(--accent); }
+
+  .wizard-actions { display: flex; justify-content: space-between; margin-top: 32px; }
+  .btn-text { background: transparent; border: none; color: var(--muted); font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #000; padding: 12px 24px; border-radius: 8px; font-weight: 700; border: none; cursor: pointer; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .plan-grid { display: grid; gap: 12px; margin-bottom: 24px; }
+  .plan-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+  .plan-card:hover { background: rgba(255,255,255,0.02); }
+  .plan-card.selected { border-color: var(--accent); background: rgba(16,185,129,0.05); }
+  .plan-card h4 { font-size: 1rem; margin-bottom: 4px; color: #fff; }
+  .plan-card p { font-size: 0.8rem; color: var(--muted); margin: 0; }
+  .plan-price { font-weight: 700; font-size: 1.1rem; color: #fff; }
+  .plan-price span { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+
+  /* --- DASHBOARD --- */
+  #app-screen { display: none; flex-direction: column; flex: 1; }
+  .dashboard-nav { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: #050505; position: sticky; top: 0; z-index: 100; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .status-badge { font-size: 0.7rem; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: rgba(16, 185, 129, 0.1); color: var(--accent); border: 1px solid rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
+  @media (max-width: 500px) { .status-badge { display: none; } }
+  
+  .user-menu { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: 0.2s; border: 1px solid transparent; }
+  .user-menu:hover { background: var(--surface); border-color: var(--border); }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; overflow: hidden; }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 24px; width: 100%; display: flex; flex-direction: column; gap: 24px; }
+  .top-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 768px) { .top-section { grid-template-columns: 1fr; } }
+  
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; }
+  
+  .kill-btn { width: 150px; height: 150px; border-radius: 50%; background: rgba(239, 68, 68, 0.05); border: 2px solid var(--danger); color: var(--danger); font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 0 40px var(--danger-glow), inset 0 0 20px rgba(239,68,68,0.1); transition: all 0.3s ease; }
+  .kill-btn:active { transform: scale(0.95); }
+  .kill-btn.active { background: rgba(16, 185, 129, 0.05); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 40px var(--accent-glow); }
+  
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; height: 100%; }
+  .stat-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
+  .stat-value { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-bottom: 8px; color: #fff; letter-spacing: -0.05em; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+
+  .api-section { align-items: stretch; text-align: left; }
+  .api-section h3 { font-size: 1.1rem; margin-bottom: 8px; color: #fff; }
+  .api-section p { font-size: 0.9rem; color: var(--muted); margin-bottom: 20px; }
+  .api-input-group { display: flex; flex-direction: column; gap: 12px; }
+  .api-input-group input { padding: 14px 16px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.5); color: white; width: 100%; font-size: 1rem; outline: none; }
+  .api-input-group input:focus { border-color: var(--accent); }
+  .api-input-group button { padding: 14px; border-radius: 10px; background: #fff; color: #000; font-weight: 700; border: none; cursor: pointer; font-size: 1rem; }
+  #keyResult { margin-top: 16px; font-family: 'JetBrains Mono', monospace; display: none; background: rgba(16,185,129,0.1); padding: 16px; border-radius: 10px; border: 1px solid rgba(16,185,129,0.2); word-break: break-all; font-size: 0.9rem; color: var(--accent); }
+
+  .log-section { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+  .log-header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); display: flex; justify-content: space-between; align-items: center; }
+  .log-header h3 { font-size: 1rem; color: #fff; }
+  .log-list { max-height: 350px; overflow-y: auto; }
+  .log-item { display: flex; flex-direction: column; gap: 10px; padding: 16px 24px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .log-item-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+  .log-payload { font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 8px; display: block; width: 100%; word-break: break-all; border: 1px solid var(--border); color: #ccc; }
+  .status-blocked { color: var(--danger); font-weight: 800; background: rgba(239,68,68,0.1); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+  .status-allowed { color: var(--accent); font-weight: 800; background: rgba(16,185,129,0.1); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+
+  /* Profile Modal */
+  .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; width: 100%; max-width: 400px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; margin: auto; }
+  .close-btn { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer; }
+  .profile-card h2 { font-size: 1.3rem; margin-bottom: 24px; color: #fff; }
+  .btn-save { width: 100%; padding: 14px; background: var(--accent); color: #000; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; margin-top: 12px; font-size: 1rem; }
+
+  .auth-tabs { display: flex; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 4px; margin-bottom: 24px; border: 1px solid var(--border); }
+  .auth-tab { flex: 1; padding: 10px; text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--muted); border-radius: 8px; cursor: pointer; transition: 0.2s; }
+  .auth-tab.active { background: var(--surface); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2); border: 1px solid var(--border); }
+
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- LANDING PAGE -->
+<div id="landing-page">
+  <nav>
+    <div class="logo"><img src="logo.svg" alt="Logo">KAVLR</div>
+    <a href="#" class="nav-btn" onclick="openWizard('login')">Sign In</a>
+  </nav>
+  <div class="hero">
+    <div class="hero-badge">✨ SOC2 Compliant Architecture</div>
+    <h1>Stop rogue AI agents before they break production.</h1>
+    <p>KAVLR is the runtime security layer for autonomous coding agents. Intercept dangerous commands, monitor telemetry in real-time, and halt entire fleets with one click.</p>
+    <a href="#" class="hero-cta" onclick="openWizard('signup')">
+      Start Building for Free
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+    <div class="hero-subcta">No credit card required. <span onclick="openWizard('signup')">Start with a free account.</span></div>
+
+    <div class="hero-features">
+      <div class="feature">
+        <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3>Kill Switch</h3>
+        <p>Instantly revoke API keys and halt all running agents across your entire workspace.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+        <h3>CLI Integration</h3>
+        <p>Run `kavlr` before any destructive agent command. Protects against .env leaks and rm -rf.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+        <h3>Live Telemetry</h3>
+        <p>A real-time feed of every action your agents take. Know exactly what is running.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING WIZARD -->
+<div class="overlay" id="wizard-overlay">
+  <div class="wizard-card">
+    <div class="wizard-progress">
+      <div class="progress-step active" id="prog-1"></div>
+      <div class="progress-step" id="prog-2"></div>
+      <div class="progress-step" id="prog-3"></div>
+    </div>
+
+    <div class="wizard-step active" id="step-1">
+      <h2 id="step1-title">Create your account</h2>
+      <p id="step1-subtitle">Start securing your AI agents in seconds.</p>
+      
+      <div class="auth-tabs">
+        <div class="auth-tab" id="tab-login" onclick="switchWizardMode('login')">Sign In</div>
+        <div class="auth-tab active" id="tab-signup" onclick="switchWizardMode('signup')">Create Account</div>
+      </div>
+
+      <div class="input-group">
+        <label>Work Email</label>
+        <input type="email" id="wiz-email" placeholder="admin@company.com">
+      </div>
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" id="wiz-pass" placeholder="••••••••">
+      </div>
+      <div class="wizard-actions">
+        <button class="btn-text" onclick="closeWizard()">Cancel</button>
+        <button class="btn-primary" id="step1-btn" onclick="wizardNext(1)">Continue</button>
+      </div>
+    </div>
+
+    <div class="wizard-step" id="step-2">
+      <h2>Tell us about yourself</h2>
+      <p>This helps your team identify you in the workspace.</p>
+      <div class="avatar-upload">
+        <div class="avatar-circle" onclick="document.getElementById('avatar-input').click()">
+          <img id="avatar-preview" src="" alt="">
+          <span id="avatar-plus">+</span>
+        </div>
+        <input type="file" id="avatar-input" accept="image/*" onchange="previewAvatar(this)">
+        <div class="avatar-label">Upload Profile Picture</div>
+      </div>
+      <div class="input-group">
+        <label>Full Name</label>
+        <input type="text" id="wiz-name" placeholder="Harun">
+      </div>
+      <div class="wizard-actions">
+        <button class="btn-text" onclick="wizardBack(2)">Back</button>
+        <button class="btn-primary" onclick="wizardNext(2)">Continue</button>
+      </div>
+    </div>
+
+    <div class="wizard-step" id="step-3">
+      <h2>Choose a plan</h2>
+      <p>Start free, upgrade when you need to protect more agents.</p>
+      <div class="plan-grid">
+        <div class="plan-card selected" onclick="selectPlan(this, 'free')">
+          <div>
+            <h4>Free</h4>
+            <p>1 agent, 100 actions/day</p>
+          </div>
+          <div class="plan-price">₹0 <span>/mo</span></div>
+        </div>
+        <div class="plan-card" onclick="selectPlan(this, 'pro')">
+          <div>
+            <h4>Pro</h4>
+            <p>Unlimited agents, custom rules</p>
+          </div>
+          <div class="plan-price">₹499 <span>/mo</span></div>
+        </div>
+        <div class="plan-card" onclick="selectPlan(this, 'team')">
+          <div>
+            <h4>Team</h4>
+            <p>Multi-user, audit exports</p>
+          </div>
+          <div class="plan-price">₹1999 <span>/mo</span></div>
+        </div>
+      </div>
+      <div class="wizard-actions">
+        <button class="btn-text" onclick="wizardBack(3)">Back</button>
+        <button class="btn-primary" id="finish-btn" onclick="finishOnboarding()">Go to Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app-screen">
+  <div class="dashboard-nav">
+    <a href="#" class="logo"><img src="logo.svg" alt="KAVLR Logo">KAVLR</a>
+    <div class="nav-right">
+      <div class="status-badge" id="globalStatus">SYSTEM SECURE</div>
+      <div class="user-menu" onclick="openProfile()">
+        <div class="user-avatar" id="nav-avatar">H</div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="top-section">
+      <div class="card">
+        <button class="kill-btn" id="killSwitch" onclick="toggleKillSwitch()">HALT ALL<br>AGENTS</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Total Actions</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statBlocked" style="color: var(--danger);">0</div>
+          <div class="stat-label">Threats Blocked</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card api-section">
+      <h3>Developer API Keys</h3>
+      <p>Generate a secure key to protect your local AI agents via the KAVLR CLI.</p>
+      <div class="api-input-group">
+        <input type="email" id="keyEmail" placeholder="developer@example.com">
+        <button onclick="generateKey()">Generate Key</button>
+      </div>
+      <div id="keyResult"></div>
+    </div>
+
+    <div class="log-section">
+      <div class="log-header">
+        <h3>Live Agent Telemetry</h3>
+        <span style="font-size: 0.75rem; color: var(--muted); display:flex; align-items:center; gap:6px;">
+          <span style="width:8px; height:8px; background:var(--accent); border-radius:50%; box-shadow:0 0 8px var(--accent);"></span> Auto-updating
+        </span>
+      </div>
+      <div class="log-list" id="logs">
+        <div class="log-item" style="justify-content: center; color: var(--muted); padding: 40px;">Waiting for telemetry...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="overlay" id="profile-modal">
+  <div class="profile-card">
+    <button class="close-btn" onclick="closeProfile()">×</button>
+    <h2>Profile Settings</h2>
+    
+    <div class="avatar-upload">
+      <div class="avatar-circle" onclick="document.getElementById('edit-avatar-input').click()">
+        <img id="edit-avatar-preview" src="" alt="">
+        <span id="edit-avatar-plus">+</span>
+      </div>
+      <input type="file" id="edit-avatar-input" accept="image/*" onchange="previewEditAvatar(this)" style="display:none;">
+      <div style="font-size: 0.85rem; color: var(--accent); cursor: pointer; font-weight: 600;" onclick="document.getElementById('edit-avatar-input').click()">Change Avatar</div>
+    </div>
+
+    <div class="input-group">
+      <label>Full Name</label>
+      <input type="text" id="edit-name" placeholder="Your Name">
+    </div>
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="edit-email" disabled style="opacity: 0.5;">
+    </div>
+
+    <button class="btn-save" onclick="saveProfile()" id="save-profile-btn">Save Changes</button>
+    <button onclick="logout(this)" id="logout-btn" style="width:100%; padding: 14px; background: transparent; color: var(--danger); border: none; font-weight: 600; cursor: pointer; margin-top: 8px; font-size:1rem; border-radius:10px;">Log Out</button>
+  </div>
+</div>
+
+<script>
+  const _supabase = supabase.createClient('https://yasllkvdrgnqtjesdyfz.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlhc2xsa3ZkcmducXRqZXNkeWZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyODQwNjgsImV4cCI6MjEwNzg2MDA2OH0.1bD80IRX7agRAK7luYzdsUvFO3uSbfaK1OSo58l4-N4');
+  
+  let currentUser = null;
+  let isKilled = false;
+  let editAvatarFile = null;
+  let currentWizardStep = 1;
+  let selectedPlan = 'free';
+
+  // --- ROUTING & INIT ---
+  async function checkAuth() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      const { data: profile } = await _supabase.from('profiles').select('onboarding_completed').eq('id', currentUser.id).single();
+      
+      if (profile && profile.onboarding_completed) {
+        enterDashboard();
+      } else {
+        document.getElementById('landing-page').style.display = 'none';
+        document.getElementById('wizard-overlay').style.display = 'flex';
+        updateWizardUI(2);
+      }
+    } else {
+      document.getElementById('landing-page').style.display = 'flex';
+      document.getElementById('app-screen').style.display = 'none';
+    }
+  }
+
+  // --- WIZARD LOGIC ---
+  
+  let wizardMode = 'signup';
+
+  function openWizard(mode) {
+    wizardMode = mode || 'signup';
+    document.getElementById('wizard-overlay').style.display = 'flex';
+    updateWizardUI(1);
+    switchWizardMode(wizardMode);
+  }
+  
+  function closeWizard() {
+    document.getElementById('wizard-overlay').style.display = 'none';
+  }
+
+  function updateWizardUI(step) {
+    document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+    document.getElementById(`step-${step}`).classList.add('active');
+    document.querySelectorAll('.progress-step').forEach((el, i) => {
+      el.classList.toggle('active', i < step);
+    });
+  }
+
+  function switchWizardMode(mode) {
+    wizardMode = mode;
+    document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+    document.getElementById('step1-title').innerText = mode === 'login' ? 'Welcome back' : 'Create your account';
+    document.getElementById('step1-subtitle').innerText = mode === 'login' ? 'Sign in to access your dashboard.' : 'Start securing your AI agents in seconds.';
+    document.getElementById('step1-btn').innerText = mode === 'login' ? 'Sign In' : 'Continue';
+  }
+
+  async function wizardNext(step) {
+    if (step === 1) {
+      const email = document.getElementById('wiz-email').value;
+      const pass = document.getElementById('wiz-pass').value;
+      if (!email || !pass) return alert('Enter email and password');
+
+      if (wizardMode === 'login') {
+        // --- SIGN IN LOGIC ---
+        const { error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+        if (error) return alert(error.message);
+        currentUser = (await _supabase.auth.getUser()).data.user;
+        
+        // Check if they already completed onboarding
+        const { data: profile } = await _supabase.from('profiles').select('onboarding_completed').eq('id', currentUser.id).single();
+        if (profile && profile.onboarding_completed) {
+           enterDashboard();
+        } else {
+           updateWizardUI(2); // Send to profile setup if incomplete
+        }
+      } else {
+        // --- SIGN UP LOGIC ---
+        const { data, error } = await _supabase.auth.signUp({ email, password: pass });
+        if (error) return alert(error.message);
+        
+        if (!data.session) {
+          const { error: loginError } = await _supabase.auth.signInWithPassword({ email, password: pass });
+          if (loginError) return alert(loginError.message);
+        }
+        currentUser = (await _supabase.auth.getUser()).data.user;
+        updateWizardUI(2);
+      }
+    } 
+    else if (step === 2) {
+      const name = document.getElementById('wiz-name').value;
+      if (!name) return alert('Please enter your name');
+      updateWizardUI(3);
+    }
+  }
+function wizardBack(step) { updateWizardUI(step - 1); }
+  function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+      editAvatarFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('avatar-preview').src = e.target.result;
+        document.getElementById('avatar-preview').style.display = 'block';
+        document.getElementById('avatar-plus').style.display = 'none';
+      }
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+  function selectPlan(el, planName) {
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPlan = planName;
+  }
+  async function finishOnboarding() {
+    const btn = document.getElementById('finish-btn');
+    btn.innerText = 'Setting up...';
+    btn.disabled = true;
+
+    const name = document.getElementById('wiz-name').value;
+    let avatarUrl = '';
+
+    if (editAvatarFile) {
+      const fileExt = editAvatarFile.name.split('.').pop();
+      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const { error: uploadError } = await _supabase.storage.from('avatars').upload(fileName, editAvatarFile);
+      if (!uploadError) {
+        const { data } = _supabase.storage.from('avatars').getPublicUrl(fileName);
+        avatarUrl = data.publicUrl;
+      }
+    }
+
+    const { error: profileError } = await _supabase.from('profiles').upsert({
+      id: currentUser.id,
+      full_name: name,
+      avatar_url: avatarUrl,
+      plan: selectedPlan,
+      onboarding_completed: true
+    });
+
+    if (profileError) {
+      alert("Error saving profile: " + profileError.message);
+      btn.innerText = 'Go to Dashboard';
+      btn.disabled = false;
+      return;
+    }
+    enterDashboard();
+  }
+
+  // --- DASHBOARD LOGIC ---
+  async function enterDashboard() {
+    document.getElementById('landing-page').style.display = 'none';
+    document.getElementById('wizard-overlay').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'flex';
+    loadProfile();
+    checkStatus();
+    loadLogs();
+    if(!window.logInterval) {
+      window.logInterval = setInterval(() => { if(currentUser) loadLogs(); }, 3000);
+    }
+  }
+
+  async function loadProfile() {
+    const { data: profile } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (profile) {
+      document.getElementById('edit-name').value = profile.full_name || '';
+      document.getElementById('edit-email').value = currentUser.email;
+      
+      if (profile.avatar_url) {
+        document.getElementById('nav-avatar').innerHTML = `<img src="${profile.avatar_url}" alt="avatar">`;
+        document.getElementById('edit-avatar-preview').src = profile.avatar_url;
+        document.getElementById('edit-avatar-preview').style.display = 'block';
+        document.getElementById('edit-avatar-plus').style.display = 'none';
+      } else {
+        document.getElementById('nav-avatar').innerText = (profile.full_name || 'U')[0].toUpperCase();
+      }
+    }
+  }
+
+  function openProfile() { document.getElementById('profile-modal').style.display = 'flex'; }
+  function closeProfile() { document.getElementById('profile-modal').style.display = 'none'; }
+
+  function previewEditAvatar(input) {
+    if (input.files && input.files[0]) {
+      editAvatarFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('edit-avatar-preview').src = e.target.result;
+        document.getElementById('edit-avatar-preview').style.display = 'block';
+        document.getElementById('edit-avatar-plus').style.display = 'none';
+      }
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  async function saveProfile() {
+    const btn = document.getElementById('save-profile-btn');
+    btn.innerText = 'Saving...'; btn.disabled = true;
+    const name = document.getElementById('edit-name').value;
+    let avatarUrl = document.getElementById('edit-avatar-preview').src;
+
+    if (editAvatarFile) {
+      const fileExt = editAvatarFile.name.split('.').pop();
+      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
+      const { error: uploadError } = await _supabase.storage.from('avatars').upload(fileName, editAvatarFile);
+      if (!uploadError) {
+        const { data } = _supabase.storage.from('avatars').getPublicUrl(fileName);
+        avatarUrl = data.publicUrl;
+      }
+    }
+    await _supabase.from('profiles').update({ full_name: name, avatar_url: avatarUrl }).eq('id', currentUser.id);
+    closeProfile(); loadProfile();
+    btn.innerText = 'Save Changes'; btn.disabled = false;
+  }
+
+  async function logout(btn) {
+    if (btn) { btn.innerText = 'Logging out...'; btn.disabled = true; }
+    if (window.logInterval) { clearInterval(window.logInterval); window.logInterval = null; }
+    await _supabase.auth.signOut();
+    currentUser = null; editAvatarFile = null;
+    closeProfile();
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('landing-page').style.display = 'flex';
+    if (btn) { btn.innerText = 'Log Out'; btn.disabled = false; }
+  }
+
+  async function checkStatus() {
+    const { data } = await _supabase.from('settings').select('kill_switch_active').eq('id', 1).single();
+    if(data) {
+      isKilled = data.kill_switch_active;
+      const btn = document.getElementById('killSwitch');
+      const badge = document.getElementById('globalStatus');
+      if(isKilled) {
+        btn.innerHTML = "AGENTS<br>HALTED"; btn.classList.add('active');
+        badge.innerText = "LOCKDOWN ACTIVE"; badge.style.color = 'var(--danger)'; badge.style.background = 'rgba(239, 68, 68, 0.1)'; badge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+      } else {
+        btn.innerHTML = "HALT ALL<br>AGENTS"; btn.classList.remove('active');
+        badge.innerText = "SYSTEM SECURE"; badge.style.color = 'var(--accent)'; badge.style.background = 'rgba(16, 185, 129, 0.1)'; badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      }
+    }
+  }
+
+  async function toggleKillSwitch() {
+    isKilled = !isKilled;
+    await _supabase.from('settings').update({ kill_switch_active: isKilled }).eq('id', 1);
+    checkStatus();
+  }
+
+  async function generateKey() {
+    const email = document.getElementById('keyEmail').value;
+    if(!email) return alert('Enter an email address');
+    const newKey = 'kavlr_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const { error } = await _supabase.from('api_keys').insert([{ key: newKey, user_email: email, user_id: currentUser.id }]);
+    const resultBox = document.getElementById('keyResult');
+    if(error) { resultBox.style.display = 'block'; resultBox.style.color = '#ef4444'; resultBox.innerText = 'Error: ' + error.message; }
+    else { resultBox.style.display = 'block'; resultBox.style.color = '#10b981'; resultBox.innerHTML = `✅ Key Generated for ${email}<br><br><code style="color: #fff; font-size: 1.1rem;">${newKey}</code><br><br><span style="color: #888; font-size: 0.8rem;">Run: export KAVLR_API_KEY="${newKey}"</span>`; document.getElementById('keyEmail').value = ''; }
+  }
+
+  async function loadLogs() {
+    if(!currentUser) return;
+    const { data, error } = await _supabase.from('agent_logs').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
+    const container = document.getElementById('logs');
+    if (error) { container.innerHTML = `<div class="log-item" style="color: red;">Error: ${error.message}</div>`; return; }
+    if(!data || data.length === 0) { container.innerHTML = '<div class="log-item" style="justify-content: center; color: var(--muted); padding: 40px;">No agent activity detected.</div>'; return; }
+    document.getElementById('statTotal').innerText = data.length;
+    document.getElementById('statBlocked').innerText = data.filter(d => d.status === 'BLOCKED').length;
+    container.innerHTML = data.map(log => `
+      <div class="log-item">
+        <div class="log-item-header">
+          <span style="font-weight: 700; font-size: 0.75rem; color: var(--muted); text-transform: uppercase;">${log.agent_id}</span>
+          <span class="${log.status === 'BLOCKED' ? 'status-blocked' : 'status-allowed'}">${log.status}</span>
+        </div>
+        <div class="log-payload">${log.payload}</div>
+      </div>
+    `).join('');
+  }
+
+  // Initialize
+  checkAuth();
+</script>
+</body>
+</html>

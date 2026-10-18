@@ -1,0 +1,19 @@
+{
+  "name": "kavlr-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "axios": "^1.20.0",
+    "cors": "^2.8.6",
+    "express": "^5.3.0"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "main": "index.js",
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
