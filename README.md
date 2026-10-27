@@ -56,7 +56,7 @@ Try a safe command:
 ## 🥖 Why I Built This
 I’m a 12-year-old developer building entirely on a $150 Android phone using Termux. I realized AI agents can hallucinate and destroy production environments with zero "Are you sure?" prompts. Enterprise tools cost thousands. KAVLR is free, lightweight, and fail-closed.
 
-*Read the full story of how I built this on [Dev.to](https://dev.to/harun-solo-dev).*
+*Read the full story of how I built this on [Dev.to](https://dev.to/koda2026).*
 
 ## ⭐ Support the Project
 If you believe AI agents need better safety rails, please give this repo a **Star**! It helps a 12-year-old founder more than you know.
