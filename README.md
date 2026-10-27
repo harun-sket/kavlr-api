@@ -3,8 +3,8 @@
   <h1>KAVLR: The AI Agent Action Gate</h1>
   <p><strong>Stop rogue AI agents from destroying your production. Built on a $150 Android phone.</strong></p>
 
+  <!-- REMOVED THE MIT LICENSE BADGE HERE -->
   <a href="https://www.npmjs.com/package/@hynaweb/kavlr"><img src="https://img.shields.io/npm/v/@hynaweb/kavlr?color=blue&label=npm" alt="NPM Version"></a>
-  <a href="https://github.com/harun-sket/kavlr-api/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://kavlr.netlify.app/"><img src="https://img.shields.io/badge/Live_Dashboard-Online-purple" alt="Live Dashboard"></a>
 </div>
 
